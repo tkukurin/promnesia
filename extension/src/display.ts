@@ -211,9 +211,43 @@ export class Binder {
             if (loc.href === null) {
                 tchild(loc_c, loc.title);
             } else {
+                console.log('[promnesia] Creating link with href:', loc.href);
                 const link = child(loc_c, 'a') as HTMLAnchorElement
                 link.title = 'Jump to the context';
                 link.href = loc.href;
+
+                // Handle editor:// links specially to open files in editor
+                if (link.href.startsWith('editor://')) {
+                    console.log('[promnesia] Found editor:// link, setting up handler:', link.href);
+                    // Remove the href to prevent any navigation
+                    const originalHref = link.href;
+                    link.removeAttribute('href');
+                    link.style.cursor = 'pointer';
+                    link.style.textDecoration = 'underline';
+                    link.style.color = 'blue';
+                    
+                    link.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        if (process.env.DEBUG) {
+                            console.log('[promnesia] Click detected on editor:// link:', originalHref);
+                        }
+                        // Send message to background script to handle file opening
+                        browser.runtime.sendMessage({
+                            method: Methods.OPEN_FILE_IN_EDITOR,
+                            uri: originalHref
+                        }).then(() => {
+                            if (process.env.DEBUG) {
+                                console.log('[promnesia] Message sent successfully');
+                            }
+                        }).catch((error) => {
+                            console.error('[promnesia] Failed to send message:', error);
+                        });
+                    });
+                    console.log('[promnesia] Event listener added to editor:// link');
+                } else {
+                    console.log('[promnesia] Non-editor link:', link.href);
+                }
 
                 // _self seems to "work" only for the "editor://" protocol. Avoids opening a new tab for "editor://" links. Nttp links then require a middle-click, which is undesirable. With normal click, they would not open at all.
                 // testing on firefox mobile would be useful.

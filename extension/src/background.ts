@@ -610,6 +610,106 @@ async function handleOpenSearch(p: SearchPageParams = {}) {
 }
 
 
+function parseEditorUri(uri: string): {path: string, line?: number} {
+    // Parse editor:// URIs like:
+    // editor:///path/to/file:123
+    // editor:///path/to/file?line=456
+    const url = new URL(uri)
+    if (url.protocol !== 'editor:') {
+        throw new Error(`Unexpected protocol ${url.protocol}`)
+    }
+    
+    let path = decodeURIComponent(url.pathname)
+    let line: number | undefined
+    
+    // Check for line number in query parameter
+    const lineParam = url.searchParams.get('line')
+    if (lineParam) {
+        line = parseInt(lineParam, 10)
+    } else {
+        // Check for line number in path (format file:line)
+        const colonIndex = path.lastIndexOf(':')
+        if (colonIndex !== -1) {
+            const lineStr = path.substring(colonIndex + 1)
+            const parsedLine = parseInt(lineStr, 10)
+            if (!isNaN(parsedLine)) {
+                line = parsedLine
+                path = path.substring(0, colonIndex)
+            }
+        }
+    }
+    
+    return {path, line}
+}
+
+
+async function handleOpenFileInEditor(uri: string) {
+    if (process.env.DEBUG) {
+        console.log('[promnesia] handleOpenFileInEditor called with:', uri);
+    }
+    try {
+        const {path, line} = parseEditorUri(uri)
+        if (process.env.DEBUG) {
+            console.log('[promnesia] Parsed editor URI:', {path, line});
+        }
+        
+        const pathWithLine = line ? `${path}:${line}` : path
+        
+        // Try different approaches to open the file
+        let opened = false
+        
+        // 1. Try vscode:// URL scheme (if VS Code is installed)
+        if (line) {
+            try {
+                const vscodeUrl = `vscode://file${path}:${line}`
+                if (process.env.DEBUG) {
+                    console.log('[promnesia] Trying VS Code URL:', vscodeUrl);
+                }
+                await browser.tabs.create({url: vscodeUrl, active: false})
+                opened = true
+                // Silent success - no notification needed
+            } catch (e) {
+                if (process.env.DEBUG) {
+                    console.log('[promnesia] VS Code URL failed:', e)
+                }
+            }
+        }
+        
+        // 2. Try file:// URL (will open in default app)
+        if (!opened) {
+            try {
+                const fileUrl = `file://${path}`
+                if (process.env.DEBUG) {
+                    console.log('[promnesia] Trying file URL:', fileUrl);
+                }
+                await browser.tabs.create({url: fileUrl, active: false})
+                opened = true
+                // Silent success - no notification needed
+            } catch (e) {
+                if (process.env.DEBUG) {
+                    console.log('[promnesia] File URL failed:', e)
+                }
+            }
+        }
+        
+        // 3. Fallback: show commands to copy (only when file opening fails)
+        if (!opened) {
+            const nvimCommand = line ? `nvim +${line} "${path}"` : `nvim "${path}"`
+            const codeCommand = line ? `code --goto "${path}:${line}"` : `code "${path}"`
+            
+            notifications.desktop(
+                `File: ${pathWithLine}\n\nCommands to copy:\n• nvim: ${nvimCommand}\n• vscode: ${codeCommand}`
+            )
+        }
+        
+    } catch (error) {
+        console.error('[promnesia] Failed to process editor URI:', error)
+        const errorMessage = error instanceof Error ? error.message : String(error)
+        notifications.desktop(`Failed to process file: ${errorMessage}`)
+    }
+}
+
+
 const onMessageCallback = async (msg: any) => { // TODO not sure if should defensify here?
     const method = msg.method
     if (method == Methods.GET_SIDEBAR_VISITS) {
@@ -648,6 +748,11 @@ const onMessageCallback = async (msg: any) => { // TODO not sure if should defen
         await handleOpenSearch()
     } else if (method == Methods.ZAPPER_EXCLUDELIST) {
         await AddToMarkVisitedExcludelist.handleZapperResult(msg)
+    } else if (method == Methods.OPEN_FILE_IN_EDITOR) {
+        if (process.env.DEBUG) {
+            console.log('[promnesia] Background received OPEN_FILE_IN_EDITOR message:', msg);
+        }
+        await handleOpenFileInEditor(msg.uri)
     }
     return false;
 }

@@ -189,6 +189,7 @@ export const Methods = {
     // TODO not used
     SIDEBAR_SHOW        : 'sidebarShow',
     ZAPPER_EXCLUDELIST  : 'zapperExcludelist',
+    OPEN_FILE_IN_EDITOR : 'openFileInEditor',
 }
 
 export const Ids = {

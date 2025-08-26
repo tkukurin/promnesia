@@ -83,6 +83,12 @@ const shared_plugins = () => [
     //    ]),
     //    preventAssignment: true,  // will be default soon, atm warns if not true
     //}),
+    replace({
+        values: {
+            'process.env.DEBUG': JSON.stringify(!release),
+        },
+        preventAssignment: true,
+    }),
     typescript({
         outDir: buildDir,
         noEmitOnError: true,  // fail on errors
@@ -142,6 +148,7 @@ const standalone = inputs => { return {
                 // ugh. necessary for tippyjs since it is referring to some node stuff
                 // TODO could use the same for anchorme to replace the regex?
                 'process.env.NODE_ENV': JSON.stringify('production'),
+                'process.env.DEBUG': JSON.stringify(!release),
             },
             preventAssignment: true,  // will be default soon, atm warns if not true
         }),
