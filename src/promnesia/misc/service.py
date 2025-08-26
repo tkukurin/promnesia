@@ -205,7 +205,7 @@ def start_service(args: argparse.Namespace) -> None:
         logger.info("Started systemd service")
         
     else:
-        logger.error("No service file found. Run 'promnesia install-server' first")
+        logger.error("No service file found. Run 'promnesia service install' first")
 
 
 def stop_service(args: argparse.Namespace) -> None:
@@ -249,7 +249,7 @@ def status_service(args: argparse.Namespace) -> None:
             logger.info("Systemd service inactive")
             
     else:
-        logger.info("No service file found. Run 'promnesia install-server' first")
+        logger.info("No service file found. Run 'promnesia service install' first")
 
 
 def logs_service(args: argparse.Namespace) -> None:
@@ -272,18 +272,3 @@ def restart_service(args: argparse.Namespace) -> None:
     """Restart the service"""
     stop_service(args)
     start_service(args)
-
-
-def setup_parser_legacy(p: argparse.ArgumentParser) -> None:
-    """Legacy setup parser for install-server backward compatibility"""
-    if SYSTEM == 'Linux':
-        dflt = 'promnesia.service'
-    elif SYSTEM == 'Darwin':
-        dflt = 'com.github.karlicoss.promnesia'
-    else:
-        dflt = NotImplemented
-
-    p.add_argument('--name', type=str, default=dflt, help='Systemd/launchd service name')
-    p.add_argument('--unit-name', type=str, dest='name', help='DEPRECATED, same as --name')
-    server_setup_parser(p)
-    p.set_defaults(func=install)  # Default behavior for backward compatibility

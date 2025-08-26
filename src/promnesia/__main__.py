@@ -30,7 +30,6 @@ from .common import (
 from .database.dump import visits_to_sqlite
 from .extract import extract_visits
 from .misc import service
-from .misc import service as install_server  # backward compatibility alias
 
 
 def iter_all_visits(sources_subset: Iterable[str | int] = ()) -> Iterator[Res[DbVisit]]:
@@ -376,9 +375,6 @@ def main() -> None:
     add_index_args(ap)
     ap.add_argument('params', nargs='*', help='Optional extra params for the indexer')
 
-    isp = subp.add_parser('install-server', help='Install server as a systemd service (for autostart)', formatter_class=F)
-    service.setup_parser_legacy(isp)
-
     svc = subp.add_parser('service', help='Service management')
     service.setup_parser(svc)
 
@@ -443,8 +439,6 @@ def main() -> None:
                 sources_subset=args.sources,
                 overwrite_db=args.overwrite,
             )
-        elif mode == 'install-server':  # todo rename to 'autostart' or something?
-            args.func(args)
         elif mode == 'service':
             args.func(args)
         elif mode == 'config':
