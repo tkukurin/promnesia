@@ -654,24 +654,26 @@ async function handleOpenFileInEditor(uri: string) {
         }
         
         const pathWithLine = line ? `${path}:${line}` : path
-        
-        // Try different approaches to open the file
         let opened = false
         
-        // 1. Try vscode:// URL scheme (if VS Code is installed)
-        if (line) {
-            try {
-                const vscodeUrl = `vscode://file${path}:${line}`
-                if (process.env.DEBUG) {
-                    console.log('[promnesia] Trying VS Code URL:', vscodeUrl);
-                }
+        // 1. Try vscode:// URL scheme (works for both with and without line numbers)
+        try {
+            const vscodeUrl = line ? `vscode://file${path}:${line}` : `vscode://file${path}`
+            if (process.env.DEBUG) {
+                console.log('[promnesia] Trying VS Code URL:', vscodeUrl);
+            }
+            // Use current tab for VS Code to avoid intrusive new tab
+            const tabs = await browser.tabs.query({active: true, currentWindow: true})
+            if (tabs[0]) {
+                await browser.tabs.update(tabs[0].id, {url: vscodeUrl})
+            } else {
                 await browser.tabs.create({url: vscodeUrl, active: false})
-                opened = true
-                // Silent success - no notification needed
-            } catch (e) {
-                if (process.env.DEBUG) {
-                    console.log('[promnesia] VS Code URL failed:', e)
-                }
+            }
+            opened = true
+            // Silent success - no notification needed
+        } catch (e) {
+            if (process.env.DEBUG) {
+                console.log('[promnesia] VS Code URL failed:', e)
             }
         }
         
@@ -692,13 +694,13 @@ async function handleOpenFileInEditor(uri: string) {
             }
         }
         
-        // 3. Fallback: show commands to copy (only when file opening fails)
+        // 3. Fallback: show commands to copy (including open-in-editor suggestion)
         if (!opened) {
             const nvimCommand = line ? `nvim +${line} "${path}"` : `nvim "${path}"`
             const codeCommand = line ? `code --goto "${path}:${line}"` : `code "${path}"`
             
             notifications.desktop(
-                `File: ${pathWithLine}\n\nCommands to copy:\n• nvim: ${nvimCommand}\n• vscode: ${codeCommand}`
+                `File: ${pathWithLine}\n\nCommands to copy:\n• nvim: ${nvimCommand}\n• vscode: ${codeCommand}\n• Or install: https://github.com/karlicoss/open-in-editor`
             )
         }
         
