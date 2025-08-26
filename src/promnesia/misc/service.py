@@ -152,8 +152,13 @@ def service_stop(args: argparse.Namespace) -> None:
     service_file, log_file = _get_service_files()
     
     if SYSTEM == 'Darwin' and service_file.exists():
-        subprocess.run(['launchctl', 'unload', str(service_file)], check=False)
-        logger.info("Stopped LaunchAgent service")
+        # Check if service is actually running before trying to unload
+        result = subprocess.run(['launchctl', 'list'], capture_output=True, text=True)
+        if 'com.promnesia.server' in result.stdout:
+            subprocess.run(['launchctl', 'unload', str(service_file)], check=False)
+            logger.info("Stopped LaunchAgent service")
+        else:
+            logger.info("LaunchAgent service not running")
         
     elif SYSTEM == 'Linux' and service_file.exists():
         subprocess.run(['systemctl', '--user', 'stop', 'promnesia.service'], check=False)
@@ -167,11 +172,16 @@ def service_stop(args: argparse.Namespace) -> None:
         
         try:
             pid = int(service_file.read_text())
+            os.kill(pid, 0)
             os.kill(pid, signal.SIGTERM)
             service_file.unlink()
             logger.info(f"Stopped Promnesia (PID {pid})")
-        except (OSError, ValueError) as e:
-            logger.error(f"Error stopping Promnesia: {e}")
+        except OSError:
+            logger.info("Promnesia not running (stale PID file)")
+            if service_file.exists():
+                service_file.unlink()
+        except ValueError as e:
+            logger.error(f"Error reading PID file: {e}")
             if service_file.exists():
                 service_file.unlink()
 
@@ -230,6 +240,12 @@ def service_logs(args: argparse.Namespace) -> None:
             logger.error("No log file found")
 
 
+def service_restart(args: argparse.Namespace) -> None:
+    """Restart Promnesia service"""
+    service_stop(args)
+    service_start(args)
+
+
 def setup_parser(p: argparse.ArgumentParser) -> None:
     """Setup service management parser"""
     p.set_defaults(func=lambda *_args: p.print_help())
@@ -239,8 +255,6 @@ def setup_parser(p: argparse.ArgumentParser) -> None:
     subparsers.add_parser('install', help='Install Promnesia as system service').set_defaults(func=service_install)
     subparsers.add_parser('start', help='Start Promnesia service').set_defaults(func=service_start)
     subparsers.add_parser('stop', help='Stop Promnesia service').set_defaults(func=service_stop)
-    subparsers.add_parser('restart', help='Restart Promnesia service').set_defaults(
-        func=lambda args: (service_stop(args), service_start(args))
-    )
+    subparsers.add_parser('restart', help='Restart Promnesia service').set_defaults(func=service_restart)
     subparsers.add_parser('status', help='Check service status').set_defaults(func=service_status)
     subparsers.add_parser('logs', help='Show service logs').set_defaults(func=service_logs)
