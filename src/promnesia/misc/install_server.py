@@ -3,6 +3,8 @@ from __future__ import annotations
 import argparse
 import os
 import platform
+import signal
+import subprocess
 import sys
 import time
 from pathlib import Path
@@ -12,7 +14,7 @@ SYSTEM = platform.system()
 UNSUPPORTED_SYSTEM = RuntimeError(f'Platform {SYSTEM} is not supported yet!')
 NO_SYSTEMD = RuntimeError('systemd not detected, find your own way to start promnesia automatically')
 
-from ..common import root
+from ..common import root, logger
 from ..server import setup_parser as server_setup_parser
 
 SYSTEMD_TEMPLATE = '''
@@ -153,4 +155,118 @@ def setup_parser(p: argparse.ArgumentParser) -> None:
 
     p.add_argument('--name', type=str, default=dflt, help='Systemd/launchd service name')
     p.add_argument('--unit-name', type=str, dest='name', help='DEPRECATED, same as --name')
-    server_setup_parser(p)
+    
+    # Add subcommands for service management
+    p.set_defaults(func=install)  # Default behavior is install
+    subparsers = p.add_subparsers(dest='install_command', help='Service management commands')
+    
+    # Install (default)
+    install_parser = subparsers.add_parser('install', help='Install service (default)')
+    server_setup_parser(install_parser)
+    install_parser.set_defaults(func=install)
+    
+    # Management commands
+    subparsers.add_parser('start', help='Start service').set_defaults(func=start_service)
+    subparsers.add_parser('stop', help='Stop service').set_defaults(func=stop_service)
+    subparsers.add_parser('restart', help='Restart service').set_defaults(func=restart_service)
+    subparsers.add_parser('status', help='Check service status').set_defaults(func=status_service)
+    subparsers.add_parser('logs', help='Show service logs').set_defaults(func=logs_service)
+
+
+def _get_service_files(name: str) -> tuple[Path, Path]:
+    """Get service file paths for current platform"""
+    if SYSTEM == 'Darwin':
+        plist_file = Path.home() / f'Library/LaunchAgents/{name}.plist'
+        log_file = Path.home() / 'Library/Logs/promnesia.out.log'
+        return plist_file, log_file
+    elif SYSTEM == 'Linux':
+        service_file = Path.home() / f'.config/systemd/user/{name}'
+        log_file = Path.home() / '.local/share/promnesia/promnesia.log'
+        return service_file, log_file
+    else:
+        # Fallback to PID-based service
+        pid_file = Path.home() / '.promnesia_service.pid'
+        log_file = Path.home() / 'Library/Logs/promnesia.log'
+        return pid_file, log_file
+
+
+def start_service(args: argparse.Namespace) -> None:
+    """Start the installed service"""
+    service_file, log_file = _get_service_files(args.name)
+    
+    if SYSTEM == 'Darwin' and service_file.exists():
+        subprocess.run(['launchctl', 'load', str(service_file)], check=True)
+        logger.info("Started LaunchAgent service")
+        
+    elif SYSTEM == 'Linux' and service_file.exists():
+        subprocess.run(['systemctl', '--user', 'start', args.name], check=True)
+        logger.info("Started systemd service")
+        
+    else:
+        logger.error("No service file found. Run 'promnesia install-server' first")
+
+
+def stop_service(args: argparse.Namespace) -> None:
+    """Stop the installed service"""
+    service_file, log_file = _get_service_files(args.name)
+    
+    if SYSTEM == 'Darwin' and service_file.exists():
+        # Check if service is actually running before trying to unload
+        result = subprocess.run(['launchctl', 'list'], capture_output=True, text=True)
+        if args.name in result.stdout:
+            subprocess.run(['launchctl', 'unload', str(service_file)], check=False)
+            logger.info("Stopped LaunchAgent service")
+        else:
+            logger.info("LaunchAgent service not running")
+        
+    elif SYSTEM == 'Linux' and service_file.exists():
+        subprocess.run(['systemctl', '--user', 'stop', args.name], check=False)
+        logger.info("Stopped systemd service")
+        
+    else:
+        logger.error("No service file found")
+
+
+def status_service(args: argparse.Namespace) -> None:
+    """Check service status"""
+    service_file, log_file = _get_service_files(args.name)
+    
+    if SYSTEM == 'Darwin' and service_file.exists():
+        result = subprocess.run(['launchctl', 'list'], capture_output=True, text=True)
+        if args.name in result.stdout:
+            logger.info("LaunchAgent service running")
+        else:
+            logger.info("LaunchAgent service not running")
+            
+    elif SYSTEM == 'Linux' and service_file.exists():
+        result = subprocess.run(['systemctl', '--user', 'is-active', args.name], 
+                              capture_output=True, text=True)
+        if result.stdout.strip() == 'active':
+            logger.info("Systemd service active")
+        else:
+            logger.info("Systemd service inactive")
+            
+    else:
+        logger.info("No service file found. Run 'promnesia install-server' first")
+
+
+def logs_service(args: argparse.Namespace) -> None:
+    """Show service logs"""
+    if SYSTEM == 'Darwin':
+        log_path = Path.home() / 'Library/Logs/promnesia.out.log'
+        if log_path.exists():
+            subprocess.run(['tail', '-f', str(log_path)])
+        else:
+            logger.error("No logs found")
+            
+    elif SYSTEM == 'Linux':
+        subprocess.run(['journalctl', '--user', '-u', args.name, '-f'])
+        
+    else:
+        logger.error("Platform not supported for log viewing")
+
+
+def restart_service(args: argparse.Namespace) -> None:
+    """Restart the service"""
+    stop_service(args)
+    start_service(args)

@@ -30,7 +30,6 @@ from .common import (
 from .database.dump import visits_to_sqlite
 from .extract import extract_visits
 from .misc import install_server
-from .misc import service
 
 
 def iter_all_visits(sources_subset: Iterable[str | int] = ()) -> Iterator[Res[DbVisit]]:
@@ -379,9 +378,6 @@ def main() -> None:
     isp = subp.add_parser('install-server', help='Install server as a systemd service (for autostart)', formatter_class=F)
     install_server.setup_parser(isp)
 
-    svc = subp.add_parser('service', help='Service management (install, start, stop, status, logs)', formatter_class=F)
-    service.setup_parser(svc)
-
     cp = subp.add_parser('config', help='Config management')
     cp.set_defaults(func=lambda *_args: cp.print_help())
     scp = cp.add_subparsers()
@@ -444,8 +440,6 @@ def main() -> None:
                 overwrite_db=args.overwrite,
             )
         elif mode == 'install-server':  # todo rename to 'autostart' or something?
-            install_server.install(args)
-        elif mode == 'service':
             args.func(args)
         elif mode == 'config':
             args.func(args)
