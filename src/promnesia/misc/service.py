@@ -156,12 +156,14 @@ def setup_parser(p: argparse.ArgumentParser) -> None:
     p.add_argument('--name', type=str, default=dflt, help='Systemd/launchd service name')
     p.add_argument('--unit-name', type=str, dest='name', help='DEPRECATED, same as --name')
     
-    # Add subcommands for service management
-    p.set_defaults(func=install)  # Default behavior is install
-    subparsers = p.add_subparsers(dest='install_command', help='Service management commands')
+    # Set default to show help (consistent with config and doctor commands)
+    p.set_defaults(func=lambda *_args: p.print_help())
     
-    # Install (default)
-    install_parser = subparsers.add_parser('install', help='Install service (default)')
+    # Add subcommands for service management
+    subparsers = p.add_subparsers(dest='service_command', help='Service management commands')
+    
+    # Install command (requires explicit invocation)
+    install_parser = subparsers.add_parser('install', help='Install service')
     server_setup_parser(install_parser)
     install_parser.set_defaults(func=install)
     
@@ -270,3 +272,18 @@ def restart_service(args: argparse.Namespace) -> None:
     """Restart the service"""
     stop_service(args)
     start_service(args)
+
+
+def setup_parser_legacy(p: argparse.ArgumentParser) -> None:
+    """Legacy setup parser for install-server backward compatibility"""
+    if SYSTEM == 'Linux':
+        dflt = 'promnesia.service'
+    elif SYSTEM == 'Darwin':
+        dflt = 'com.github.karlicoss.promnesia'
+    else:
+        dflt = NotImplemented
+
+    p.add_argument('--name', type=str, default=dflt, help='Systemd/launchd service name')
+    p.add_argument('--unit-name', type=str, dest='name', help='DEPRECATED, same as --name')
+    server_setup_parser(p)
+    p.set_defaults(func=install)  # Default behavior for backward compatibility

@@ -569,7 +569,7 @@ def get_system_tz() -> ZoneInfo:
         return ZoneInfo('UTC')
 
 
-# used in misc/install_server.py
+# used in misc/service.py
 def root() -> Path:
     r = Path(__file__).absolute().parent.parent.parent
     assert (r / 'src').exists()

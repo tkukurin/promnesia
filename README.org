@@ -281,19 +281,11 @@ Also check out [[file:doc/TROUBLESHOOTING.org][troubleshooting guide]] or [[http
 
   You only have to start it once, it will automatically detect further changes done by =promnesia index=.
  
-  - [optional] autostart the server with =promnesia install-server=
+  - [optional] autostart the server with =promnesia service install=
 
-    This sets it up to autostart and run in the background:
-
-    - via Systemd for Linux
-    - via Launchd for OSX. I don't have a Mac nearby, so if you have any issues with it, please report them!
-
-    I /think/ you can also use cron with =@reboot= attribute:
-
-    : # sleep is just in case cron starts up too early. Prefer systemd script if possible!
-    : @reboot     sleep 60 && promnesia serve   >/tmp/promnesia-serve.log 2>/tmp/promnesia-serve.err
-
-    Alternatively, you can just create a manual autostart entry in your desktop environment.
+    This sets it up to autostart and run in the background.
+    
+    Management commands: =promnesia service {install,start,stop,restart,status,logs}=
 
   - [optional] check that the server is responding =promnesia doctor server=
 
