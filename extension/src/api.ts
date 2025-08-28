@@ -91,7 +91,11 @@ export function makeFakeVisits(count: number): Visits {
 
 export const backend = {
     visits: async function(url: Url): Promise<Visits | Error> {
-        return await queryBackendCommon<VisitsResponse>({url: url}, 'visits')
+        const opts = await getOptions()
+        return await queryBackendCommon<VisitsResponse>({
+            url: url,
+            exact_url_match_only: opts.exact_url_match_only
+        }, 'visits')
               .then(rawToVisits)
               .catch((err: Error) => err)
         // todo not sure if this error handling should be here?

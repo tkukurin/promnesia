@@ -145,6 +145,7 @@ const o_contexts_popup = new Toggle('contexts_popup_id'     )
 const o_sidebar_detect_urls = new Toggle('sidebar_detect_urls_id')
 const o_sidebar_always_show = new IToggle('sidebar_always_show_id')
 const o_highlights_on  = new Toggle('highlight_id'          )
+const o_exact_url_match_only = new Toggle('exact_url_match_only_id')
 const o_mark_visited_always = new IToggle('mark_visited_always_id')
 
 const o_mark_visited_excludelist = new Editor('mark_visited_excludelist_id', {mode: null        })
@@ -167,6 +168,7 @@ document.addEventListener('DOMContentLoaded', defensifyAlert(async () => {
     await o_sidebar_detect_urls       .setValue(opts.sidebar_detect_urls)
     await o_sidebar_always_show       .setValue(opts.sidebar_always_show)
     await o_highlights_on             .setValue(opts.highlight_on)
+    await o_exact_url_match_only      .setValue(opts.exact_url_match_only)
     await o_mark_visited_always       .setValue(opts.mark_visited_always)
 
     // TODO it should know the syntax? or infer from the class??
@@ -212,6 +214,7 @@ document.getElementById(
         sidebar_detect_urls       : await (o_sidebar_detect_urls       .getValue()),
         sidebar_always_show       : await (o_sidebar_always_show       .getValue()),
         highlight_on              : await (o_highlights_on             .getValue()),
+        exact_url_match_only      : await (o_exact_url_match_only      .getValue()),
         mark_visited_always       : await (o_mark_visited_always       .getValue()),
         mark_visited_excludelist  : await (o_mark_visited_excludelist  .getValue()),
         blacklist                 : await (o_global_excludelist        .getValue()),

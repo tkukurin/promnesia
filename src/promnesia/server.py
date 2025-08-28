@@ -253,23 +253,29 @@ def status() -> Json:
 @dataclass
 class VisitsRequest:
     url: str
+    exact_url_match_only: bool = False
 
 
 @app.get ('/visits', response_model=VisitsResponse)  # fmt: skip
 @app.post('/visits', response_model=VisitsResponse)  # fmt: skip
 def visits(request: VisitsRequest) -> VisitsResponse:
     url = request.url
-    get_logger().info('/visited %s', url)
-    return search_common(
-        url=url,
-        # odd, doesn't work just with: x or (y and z)
-        where=lambda table, url: or_(
+    exact_match_only = request.exact_url_match_only
+    get_logger().info('/visited %s (exact_only=%s)', url, exact_match_only)
+    
+    if exact_match_only:
+        # Only return exact matches
+        where_clause = lambda table, url: table.c.norm_url == url
+    else:
+        # Original behavior: exact matches + child visits with context
+        where_clause = lambda table, url: or_(
             # exact match
             table.c.norm_url == url,
             # + child visits, but only 'interesting' ones
             and_(table.c.context != None, table.c.norm_url.startswith(url, autoescape=True)),  # noqa: E711
-        ),
-    )
+        )
+    
+    return search_common(url=url, where=where_clause)
 
 
 @dataclass

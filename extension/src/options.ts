@@ -43,6 +43,8 @@ type BaseOptions = {
 
     highlight_on: boolean;
 
+    exact_url_match_only: boolean;
+
     // kept as string to preserve formatting
     global_excludelists_ext: string;
 
@@ -99,6 +101,8 @@ function defaultOptions(): StoredOptions {
         sidebar_always_show: null,
 
         highlight_on: true,
+
+        exact_url_match_only: false,
 
         mark_visited_always     : null,
         mark_visited_excludelist: '',
