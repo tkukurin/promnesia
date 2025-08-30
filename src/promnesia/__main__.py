@@ -8,6 +8,7 @@ import os
 import shlex
 import shutil
 import sys
+from collections import defaultdict
 from collections.abc import Iterable, Iterator, Sequence
 from pathlib import Path
 from subprocess import Popen, check_call, run
@@ -112,6 +113,7 @@ def do_index(
     dry: bool = False,
     sources_subset: Iterable[str | int] = (),
     overwrite_db: bool = False,
+    verbose: int | None = None,  # set max errors to report
 ) -> Sequence[Exception]:
     config.load_from(config_file)  # meh.. should be cleaner
     try:
@@ -121,9 +123,21 @@ def do_index(
         config.reset()
     if len(errors) > 0:
         logger.error('%d errors, printing them out:', len(errors))
-        for e in errors:
-            logger.exception(e)
-        logger.error('%d errors, exit code 1', len(errors))
+        error_groups = defaultdict(list)
+        for e in errors: error_groups[type(e).__name__].append(e)
+
+        for error_type, error_list in error_groups.items():
+            print(f'\n{error_type} ({len(error_list)}):')
+            n = verbose or len(error_list)
+            for e in error_list[:n]:
+                if hasattr(e, 'args') and len(e.args) == 2:
+                    path, reason = e.args
+                    path_short = Path(path).name if '/' in str(path) else str(path)
+                    print(f'  • {path_short}: {reason}')
+                else:
+                    msg = str(e.args[0]) if e.args else str(e)
+                    print(f'  • {msg[:100]}')
+            if len(error_list) > n: print(f'  ... {len(error_list) - n} more')
     return errors
 
 
